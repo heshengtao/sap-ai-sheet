@@ -9,6 +9,10 @@
         .loading { 
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
             text-align: center; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         .error { color: red; padding: 20px; }
         .debug { 
@@ -19,6 +23,61 @@
             padding: 10px; 
             border-radius: 4px; 
             text-align: left;
+            white-space: pre-wrap; /* 保留空格和换行 */
+        }
+        /* 错误模态框样式 */
+        .error-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .error-modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .error-modal h3 {
+            margin-top: 0;
+            color: #d32f2f;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .error-modal-buttons {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .error-modal button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .error-modal .btn-retry {
+            background: #007bff;
+            color: white;
+        }
+        .error-modal .btn-close {
+            background: #6c757d;
+            color: white;
+        }
+        .error-modal .btn-debug {
+            background: #28a745;
+            color: white;
         }
     </style>
 </head>
@@ -36,21 +95,15 @@
         function getCurrentExtId() {
             console.log('开始解析扩展ID...');
             
-            // 方法1: 从当前页面 URL 解析
-            // 期望的 URL 格式：http://localhost:port/extensions/ext_id/index.html
-            // 或者：http://localhost:port/api/extensions/ext_id/...
-            
             const currentUrl = window.location.href;
             const currentPath = window.location.pathname;
             
             console.log('当前URL:', currentUrl);
             console.log('当前路径:', currentPath);
             
-            // 分割路径并过滤空字符串
             const pathParts = currentPath.split('/').filter(part => part.length > 0);
             console.log('路径部分:', pathParts);
             
-            // 查找 'extensions' 关键词
             const extIndex = pathParts.indexOf('extensions');
             console.log('extensions索引位置:', extIndex);
             
@@ -60,7 +113,6 @@
                 return extId;
             }
             
-            // 方法2: 从 referrer (来源页面) 解析
             if (document.referrer) {
                 console.log('尝试从referrer解析:', document.referrer);
                 try {
@@ -78,7 +130,6 @@
                 }
             }
             
-            // 方法3: 从 URL hash 解析（如果有的话）
             if (window.location.hash) {
                 const hash = window.location.hash.substring(1);
                 console.log('尝试从hash解析:', hash);
@@ -89,7 +140,6 @@
                 }
             }
             
-            // 方法4: 从 URL 查询参数解析
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('ext_id')) {
                 const extId = urlParams.get('ext_id');
@@ -97,8 +147,6 @@
                 return extId;
             }
             
-            // 方法5: 尝试匹配常见的路径模式
-            // 匹配类似 /static/extensions/ext_id/ 的路径
             const staticMatch = currentPath.match(/\/static\/extensions\/([^\/]+)/);
             if (staticMatch) {
                 const extId = staticMatch[1];
@@ -106,7 +154,6 @@
                 return extId;
             }
             
-            // 匹配类似 /ext/ext_id/ 的路径
             const extMatch = currentPath.match(/\/ext\/([^\/]+)/);
             if (extMatch) {
                 const extId = extMatch[1];
@@ -115,7 +162,45 @@
             }
             
             console.warn('无法从URL解析扩展ID，使用默认值');
-            return 'heshengtao_sap-sheetnext'; // 备用方案
+            return 'heshengtao_sap-sheetnext'; 
+        }
+
+        function showBackendErrorModal(error) {
+            const modal = document.createElement('div');
+            modal.className = 'error-modal';
+            
+            // 提取详细错误信息
+            let errorDetails = '';
+            if (error.response && error.response.data) {
+                try {
+                    // 尝试格式化JSON响应
+                    errorDetails = JSON.stringify(error.response.data, null, 2);
+                } catch (e) {
+                    errorDetails = error.response.data.toString();
+                }
+            } else if (error.stack) {
+                errorDetails = error.stack;
+            } else {
+                errorDetails = error.toString();
+            }
+            
+            modal.innerHTML = `
+                <div class="error-modal-content">
+                    <h3>后端服务错误</h3>
+                    <p><strong>错误信息:</strong> ${error.message || '未知错误'}</p>
+                    <div class="debug">
+                        <strong>详细信息:</strong><br>
+                        ${errorDetails}
+                    </div>
+                    <div class="error-modal-buttons">
+                        <button class="btn-debug" onclick="showDebugInfo()">调试信息</button>
+                        <button class="btn-retry" onclick="location.reload()">重试</button>
+                        <button class="btn-close" onclick="this.closest('.error-modal').remove()">关闭</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
         }
 
         async function init() {
@@ -124,13 +209,9 @@
             const portInfo = document.getElementById('portInfo');
             
             try {
-                // 动态获取 ext_id
                 const extId = getCurrentExtId();
-                
-                // 构建 AI 服务地址
                 const aiUrl = `/api/extensions/${extId}/node/sheetnextAI`;
                 
-                // 更新加载信息
                 portInfo.textContent = `扩展ID: ${extId}`;
                 
                 console.log('初始化参数:', {
@@ -140,52 +221,86 @@
                     referrer: document.referrer
                 });
 
-                // 检查 SheetNext 是否已加载
                 if (typeof SheetNext === 'undefined') {
                     console.log('SheetNext 未加载，等待...');
                     setTimeout(init, 100);
                     return;
                 }
                 
-                // 初始化 SheetNext
+                // 测试后端连接
+                try {
+                    console.log('测试后端连接:', aiUrl);
+                    const testResponse = await fetch(aiUrl, { 
+                        method: 'OPTIONS',
+                        headers: {
+                            'Accept': 'application/json',
+                        }
+                    });
+                    
+                    if (!testResponse.ok) {
+                        throw new Error(`后端服务连接失败 (HTTP状态: ${testResponse.status})`);
+                    }
+                    console.log('后端连接测试成功');
+                } catch (backendError) {
+                    console.error('后端连接测试失败:', backendError);
+                    throw new Error(`无法连接到后端服务: ${backendError.message}`);
+                }
+                
                 container.style.display = 'block';
                 const sn = new SheetNext(container, { 
-                    AI_URL: aiUrl 
+                    AI_URL: aiUrl,
+                    onError: (error) => {
+                        console.error('SheetNext运行时错误:', error);
+                        showBackendErrorModal(error);
+                    }
                 });
+                
+                // 监听SheetNext的后端错误事件
+                if (sn.on) {
+                    sn.on('backendError', (error) => {
+                        console.error('捕获到后端错误:', error);
+                        showBackendErrorModal(error);
+                    });
+                }
                 
                 loading.style.display = 'none';
                 console.log('✅ SheetNext 初始化成功');
                 
             } catch (error) {
                 console.error('❌ 初始化失败:', error);
-                const extId = getCurrentExtId();
-                const aiUrl = `/api/extensions/${extId}/node/sheetnextAI`;
                 
-                loading.innerHTML = `
-                    <div class="error">
-                        <h3>初始化失败</h3>
-                        <p><strong>错误:</strong> ${error.message}</p>
-                        <div class="debug">
-                            <strong>调试信息:</strong><br>
-                            扩展ID: ${extId}<br>
-                            AI URL: ${aiUrl}<br>
-                            当前URL: ${window.location.href}<br>
-                            当前路径: ${window.location.pathname}<br>
-                            来源页面: ${document.referrer || '无'}<br>
-                            SheetNext可用: ${typeof SheetNext !== 'undefined'}
+                // 判断是否是后端错误
+                const isBackendError = error.message.includes('后端') || 
+                                     error.message.includes('API') || 
+                                     error.message.includes('连接');
+                
+                if (isBackendError) {
+                    showBackendErrorModal(error);
+                    loading.style.display = 'none';
+                } else {
+                    loading.innerHTML = `
+                        <div class="error">
+                            <h3>初始化失败</h3>
+                            <p><strong>错误:</strong> ${error.message}</p>
+                            <div class="debug">
+                                <strong>调试信息:</strong><br>
+                                扩展ID: ${getCurrentExtId()}<br>
+                                当前URL: ${window.location.href}<br>
+                                SheetNext可用: ${typeof SheetNext !== 'undefined'}
+                            </div>
+                            <button onclick="location.reload()">重试</button>
+                            <button onclick="showDebugInfo()">显示详细调试</button>
                         </div>
-                        <button onclick="location.reload()">重试</button>
-                        <button onclick="showDebugInfo()">显示详细调试</button>
-                    </div>
-                `;
+                    `;
+                }
             }
         }
         
-        // 调试函数
         function showDebugInfo() {
             const extId = getCurrentExtId();
             const debugInfo = {
                 扩展ID: extId,
+                AI服务地址: `/api/extensions/${extId}/node/sheetnextAI`,
                 当前URL: window.location.href,
                 当前路径: window.location.pathname,
                 来源页面: document.referrer || '无',
@@ -206,8 +321,8 @@
             init();
         }
         
-        // 添加全局调试函数
-        window.debugExtension = showDebugInfo;
+        // 暴露全局调试函数
+        window.showDebugInfo = showDebugInfo;
         window.getCurrentExtId = getCurrentExtId;
     </script>
 </body>

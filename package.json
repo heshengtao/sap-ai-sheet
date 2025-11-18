@@ -1,0 +1,25 @@
+{
+  "name": "sap-ai-sheet",
+  "version": "1.0.0",
+  "author": "heshengtao",
+  "systemPrompt": "",
+  "repository": "https://github.com/heshengtao/sap-ai-sheet",
+  "backupRepository": "https://gitee.com/heshengtao/sap-ai-sheet",
+  "description": "SheetNext AI Excel Editor Plugin for Super Agent Party",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "plugin": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.1.0",
+    "node-fetch": "^3.3.2",
+    "openai": "^6.9.1",
+    "sheetnext": "^0.1.8"
+  }
+}
